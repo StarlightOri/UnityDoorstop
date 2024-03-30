@@ -4,7 +4,6 @@
 #include "../util/util.h"
 
 #define CONFIG_NAME TEXT("doorstop_config.ini")
-#define DEFAULT_TARGET_ASSEMBLY TEXT("Doorstop.dll")
 #define EXE_EXTENSION_LENGTH 4
 #define STR_EQUAL(str1, str2) (lstrcmpi(str1, str2) == 0)
 
@@ -65,12 +64,8 @@ static inline void init_config_file() {
 
     load_bool_file(config_path, TEXT("General"), TEXT("enabled"), TEXT("true"),
                    &config.enabled);
-    load_bool_file(config_path, TEXT("General"), TEXT("ignore_disable_switch"),
-                   TEXT("false"), &config.ignore_disabled_env);
     load_bool_file(config_path, TEXT("General"), TEXT("redirect_output_log"),
                    TEXT("false"), &config.redirect_output_log);
-    load_path_file(config_path, TEXT("General"), TEXT("target_assembly"),
-                   DEFAULT_TARGET_ASSEMBLY, &config.target_assembly);
 
     load_path_file(config_path, TEXT("UnityMono"),
                    TEXT("dll_search_path_override"), NULL,
@@ -81,11 +76,6 @@ static inline void init_config_file() {
                    TEXT("false"), &config.mono_debug_suspend);
     load_str_file(config_path, TEXT("UnityMono"), TEXT("debug_address"),
                   TEXT("127.0.0.1:10000"), &config.mono_debug_address);
-
-    load_path_file(config_path, TEXT("Il2Cpp"), TEXT("coreclr_path"), NULL,
-                   &config.clr_runtime_coreclr_path);
-    load_path_file(config_path, TEXT("Il2Cpp"), TEXT("corlib_dir"), NULL,
-                   &config.clr_corlib_dir);
 
     free(config_path);
 }
@@ -129,54 +119,7 @@ bool_t load_path_argv(char_t **argv, int *i, int argc, const char_t *arg_name,
     return TRUE;
 }
 
-static inline void init_cmd_args() {
-    char_t *args = GetCommandLine();
-    int argc = 0;
-    char_t **argv = CommandLineToArgv(args, &argc);
-
-#define PARSE_ARG(name, dest, parser)                                          \
-    if (parser(argv, &i, argc, name, &(dest)))                                 \
-        continue;
-
-    for (int i = 0; i < argc; i++) {
-        PARSE_ARG(TEXT("--doorstop-enabled"), config.enabled, load_bool_argv);
-        PARSE_ARG(TEXT("--doorstop-redirect-output-log"),
-                  config.redirect_output_log, load_bool_argv);
-        PARSE_ARG(TEXT("--doorstop-target-assembly"), config.target_assembly,
-                  load_path_argv);
-
-        PARSE_ARG(TEXT("--doorstop-mono-dll-search-path-override"),
-                  config.mono_dll_search_path_override, load_path_argv);
-        PARSE_ARG(TEXT("--doorstop-mono-debug-enabled"),
-                  config.mono_debug_enabled, load_bool_argv);
-        PARSE_ARG(TEXT("--doorstop-mono-debug-suspend"),
-                  config.mono_debug_suspend, load_bool_argv);
-        PARSE_ARG(TEXT("--doorstop-mono-debug-address"),
-                  config.mono_debug_address, load_str_argv);
-
-        PARSE_ARG(TEXT("--doorstop-clr-corlib-dir"), config.clr_corlib_dir,
-                  load_path_argv);
-        PARSE_ARG(TEXT("--doorstop-clr-runtime-coreclr-path"),
-                  config.clr_runtime_coreclr_path, load_path_argv);
-    }
-
-    LocalFree(argv);
-
-#undef PARSE_ARG
-}
-
-static inline void init_env_vars() {
-    char_t *disable_env = getenv(TEXT("DOORSTOP_DISABLE"));
-    if (!config.ignore_disabled_env && disable_env != 0) {
-        LOG("DOORSTOP_DISABLE is set! Disabling Doorstop!");
-        config.enabled = FALSE;
-    }
-    shutenv(disable_env);
-}
-
 void load_config() {
     init_config_defaults();
     init_config_file();
-    init_cmd_args();
-    init_env_vars();
 }

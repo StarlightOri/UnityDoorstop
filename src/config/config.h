@@ -23,14 +23,6 @@ typedef struct {
     bool_t redirect_output_log;
 
     /**
-     * @brief Whether to ignore DOORSTOP_DISABLE.
-     *
-     * If enabled, Doorstop will ignore DOORSTOP_DISABLE environment variable.
-     * This is sometimes useful with Steam games that break env var isolation.
-     */
-    bool_t ignore_disabled_env;
-
-    /**
      * @brief Path to a managed assembly to invoke.
      */
     char_t *target_assembly;
@@ -58,16 +50,6 @@ typedef struct {
      * @brief Debug address to use for the mono debugger.
      */
     char_t *mono_debug_address;
-
-    /**
-     * @brief Path to the CoreCLR runtime library.
-     */
-    char_t *clr_runtime_coreclr_path;
-
-    /**
-     * @brief Path to the CoreCLR core libraries folder.
-     */
-    char_t *clr_corlib_dir;
 } Config;
 
 extern Config config;

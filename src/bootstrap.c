@@ -2,7 +2,6 @@
 #include "config/config.h"
 #include "crt.h"
 #include "runtimes/coreclr.h"
-#include "runtimes/il2cpp.h"
 #include "runtimes/mono.h"
 #include "util/logging.h"
 #include "util/paths.h"
@@ -42,8 +41,6 @@ void mono_doorstop_bootstrap(void *mono_domain) {
         free(folder_path_n);
 #undef CONFIG_EXT
     }
-
-    setenv(TEXT("DOORSTOP_INVOKE_DLL_PATH"), config.target_assembly, TRUE);
     setenv(TEXT("DOORSTOP_PROCESS_PATH"), app_path, TRUE);
 
     char *assembly_dir = mono.assembly_getrootdir();
@@ -91,12 +88,12 @@ void mono_doorstop_bootstrap(void *mono_domain) {
         return;
     }
 
-    LOG("Assembly loaded; looking for Doorstop.Entrypoint:Start");
-    void *desc = mono.method_desc_new("Doorstop.Entrypoint:Start", TRUE);
+    LOG("Assembly loaded; looking for OML.Main:Start");
+    void *desc = mono.method_desc_new("OML.Main:Start", TRUE);
     void *method = mono.method_desc_search_in_image(desc, image);
     mono.method_desc_free(desc);
     if (!method) {
-        LOG("Failed to find method Doorstop.Entrypoint:Start");
+        LOG("Failed to find method OML.Main:Start");
         return;
     }
 
@@ -187,89 +184,6 @@ void *init_mono(const char *root_domain_name, const char *runtime_version) {
     mono_doorstop_bootstrap(domain);
 
     return domain;
-}
-
-void il2cpp_doorstop_bootstrap() {
-    if (!config.clr_corlib_dir || !config.clr_runtime_coreclr_path) {
-        LOG("No CoreCLR paths set, skipping loading");
-        return;
-    }
-
-    LOG("CoreCLR runtime path: %s", config.clr_runtime_coreclr_path);
-    LOG("CoreCLR corlib dir: %s", config.clr_corlib_dir);
-
-    if (!file_exists(config.clr_runtime_coreclr_path) ||
-        !folder_exists(config.clr_corlib_dir)) {
-        LOG("CoreCLR startup dirs are not set up skipping invoking Doorstop");
-        return;
-    }
-
-    void *coreclr_module = dlopen(config.clr_runtime_coreclr_path, RTLD_LAZY);
-    LOG("Loaded coreclr.dll: %p", coreclr_module);
-    if (!coreclr_module) {
-        LOG("Failed to load CoreCLR runtime!");
-        return;
-    }
-
-    load_coreclr_funcs(coreclr_module);
-
-    char_t *app_path = program_path();
-    char *app_path_n = narrow(app_path);
-
-    char_t *target_dir = get_folder_name(config.target_assembly);
-    char *target_dir_n = narrow(target_dir);
-    char_t *target_name = get_file_name(config.target_assembly, FALSE);
-    char *target_name_n = narrow(target_name);
-
-    char_t *app_paths_env =
-        calloc(strlen(config.clr_corlib_dir) + 1 + strlen(target_dir) + 1,
-               sizeof(char_t));
-    strcat(app_paths_env, config.clr_corlib_dir);
-    strcat(app_paths_env, PATH_SEP);
-    strcat(app_paths_env, target_dir);
-    char *app_paths_env_n = narrow(app_paths_env);
-
-    LOG("App path: %s", app_path);
-    LOG("Target dir: %s", target_dir);
-    LOG("Target name: %s", target_name);
-    LOG("APP_PATHS: %s", app_paths_env);
-
-    char *props = "APP_PATHS";
-
-    setenv(TEXT("DOORSTOP_INITIALIZED"), TEXT("TRUE"), TRUE);
-    setenv(TEXT("DOORSTOP_INVOKE_DLL_PATH"), config.target_assembly, TRUE);
-    setenv(TEXT("DOORSTOP_MANAGED_FOLDER_DIR"), config.clr_corlib_dir, TRUE);
-    setenv(TEXT("DOORSTOP_PROCESS_PATH"), app_path, TRUE);
-    setenv(TEXT("DOORSTOP_DLL_SEARCH_DIRS"), app_paths_env, TRUE);
-
-    void *host = NULL;
-    unsigned int domain_id = 0;
-    int result = coreclr.initialize(app_path_n, "Doorstop Domain", 1, &props,
-                                    &app_paths_env_n, &host, &domain_id);
-    if (result != 0) {
-        LOG("Failed to initialize CoreCLR: 0x%08x", result);
-        return;
-    }
-
-    void (*startup)() = NULL;
-    result = coreclr.create_delegate(host, domain_id, target_name_n,
-                                     "Doorstop.Entrypoint", "Start", &startup);
-    if (result != 0) {
-        LOG("Failed to get entrypoint delegate: 0x%08x", result);
-        return;
-    }
-
-    LOG("Invoking Doorstop.Entrypoint.Start()");
-    startup();
-}
-
-int init_il2cpp(const char *domain_name) {
-    char_t *domain_name_w = widen(domain_name);
-    LOG("Starting IL2CPP domain \"%s\"", domain_name_w);
-    free(domain_name_w);
-    const int orig_result = il2cpp.init(domain_name);
-    il2cpp_doorstop_bootstrap();
-    return orig_result;
 }
 
 #define MONO_DEBUG_ARG_START                                                   \

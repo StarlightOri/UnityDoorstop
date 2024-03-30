@@ -13,6 +13,8 @@ target("doorstop")
     set_kind("shared")
     set_optimize("smallest")
     add_options("include_logging")
+    set_filename("winhttp.dll")
+
     local load_events = {}
 
     if is_os("windows") then
@@ -27,33 +29,12 @@ target("doorstop")
         add_links("shell32", "kernel32", "user32")
     end
 
-    if is_os("linux") or is_os("macosx") then
-        add_files("src/nix/*.c")
-        add_files("src/nix/plthook/*.c")
-        add_links("dl")
-        --add_shflags("--no-as-needed",{force=true})
-        if is_mode("debug") then
-            set_symbols("debug")
-            set_optimize("none")
-        end
-    end
-
     if is_plat("windows") then
         add_cxflags("-GS-", "-Ob2", "-MT", "-GL-", "-FS")
         add_shflags("-nodefaultlib",
                     "-entry:DllEntry",
                     "-dynamicbase:no",
                     {force=true})
-    end
-
-    if is_plat("mingw") then
-        add_shflags("-nostdlib", "-nolibc", {force=true})
-
-        if is_arch("i386") then
-            add_shflags("-e _DllEntry", "-Wl,--enable-stdcall-fixup", {force=true})
-        elseif is_arch("x86_64") then
-            add_shflags("-e DllEntry", {force=true})
-        end
     end
 
     add_files("src/*.c")
@@ -65,9 +46,4 @@ target("doorstop")
         for i, event in ipairs(load_events) do
             event(target, import, io)
         end
-    end)
-
-    after_build(function(target)
-        io.writefile(path.join(target:targetdir(), ".doorstop_version"),
-            info.version.major.."."..info.version.minor.."."..info.version.patch..info.version.release)
     end)
